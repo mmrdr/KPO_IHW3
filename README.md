@@ -70,6 +70,10 @@ docker-compose up --build
 
 ---
 
+## Фронтенд (http://localhost:3000/)
+
+---
+
 ## Базы данных
 
 ### Payments Database (account-pg)
