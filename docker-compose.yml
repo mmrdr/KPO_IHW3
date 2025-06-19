@@ -1,0 +1,100 @@
+version: '3.8'
+
+services:
+  api-gateway:
+    build:
+      context: ./ApiGateway
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - Services__PaymentService=http://payment-service:8080
+      - Services__OrdersService=http://orders-service:8080
+    depends_on:
+      - payment-service
+      - orders-service
+    restart: unless-stopped
+
+  payment-service:
+    build: 
+      context: ./PaymentService
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Host=account-pg;Port=5432;Database=account;Username=account;Password=secret
+    depends_on:
+      account-pg:
+        condition: service_healthy
+      rabbit-mq:
+        condition: service_healthy
+    restart: on-failure
+
+  account-pg:
+    image: postgres:latest
+    environment:
+      - POSTGRES_PASSWORD=secret
+      - POSTGRES_USER=account
+      - POSTGRES_DB=account
+    volumes:
+      - account-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U account -d account"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  orders-service:
+    build:
+      context: ./OrdersService
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Host=order-pg;Port=5432;Database=order;Username=order;Password=secret
+    depends_on:
+      order-pg:
+        condition: service_healthy
+      rabbit-mq:
+        condition: service_healthy
+    restart: unless-stopped
+    
+  order-pg:
+    image: postgres:latest
+    environment:
+      - POSTGRES_PASSWORD=secret
+      - POSTGRES_USER=order
+      - POSTGRES_DB=order
+    volumes:
+      - order-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U order -d order"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbit-mq:
+    image: rabbitmq:3-management
+    hostname: rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=rabbitmq
+      - RABBITMQ_DEFAULT_PASS=secret
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q check_running && rabbitmq-diagnostics -q check_local_alarms --formatter json || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+volumes:
+  order-postgres-data:
+  account-postgres-data:
