@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using OrdersService.Models;
 using OrdersService.Services;
 
-namespace OrdersController.Controllers;
+namespace OrderController.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
